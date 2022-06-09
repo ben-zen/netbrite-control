@@ -1,6 +1,7 @@
+// Copyright Ben Lewis 2022
+
 #include <string>
 #include <string_view>
-#include <experimental/net>
 
 namespace nbx
 {
@@ -10,12 +11,12 @@ namespace nbx
     std::string m_address;
     uint16_t m_port;
 
-    std::experimental::net::ip::udp::socket m_socket;
+    int m_socket_fd;
     
   public:
-    net_brite(std::experimental::net::io_context &context, std::string const &address, uint16_t port);
+    net_brite(std::string const &address, uint16_t port);
     ~net_brite();
     
-    void set_message(std::string_view message);
+    int set_message(std::string_view message);
   };
 };

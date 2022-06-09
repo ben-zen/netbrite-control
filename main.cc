@@ -1,3 +1,5 @@
+// Copyright Ben Lewis 2022
+
 #include <climits>
 #include <errno.h>
 #include <experimental/net>
@@ -36,8 +38,7 @@ int main(int argc, char **argv)
   // connect to sign
   std::cout << "Connecting to sign at " << address << ":" << port << ", and setting message: " << message << std::endl;
 
-  net::io_context io_context{};
-  nbx::net_brite sign { io_context, address, port };
+  nbx::net_brite sign { address, port };
   // send updated configuration
   sign.set_message(message);
   // report errors?
