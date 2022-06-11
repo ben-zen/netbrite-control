@@ -97,12 +97,14 @@ int net_brite::set_message(std::string_view const &message)
       u_char scroll_rate;
       u_char scroll_rate_footer { 0x0 };
       u_char pause_header { 0x0c };
-      u_char message_def_parameters[8] { 0x0b, 0xfe, 0x0a, 0xe8, 0x03, 0x09, 0x0e, 0x08 };
-      u_char volume;
+      u_short pause {};
+      u_char message_def_parameters[7] { 0x0b, 0xfe, 0x0a, 0xe8, 0x03, 0x09, 0x0e};
+      u_char volume_header { 0x08 };
+      u_char volume {};
       u_char font_header { 0x07 };
-      u_char font;
+      u_char font {};
       u_char color_header { 0x06 };
-      u_char color;
+      u_char color {};
       u_char unknown_option_five[3] { 0x05, 0x00, 0x00, };
       u_char date_header {0x04};
       struct
@@ -126,7 +128,7 @@ int net_brite::set_message(std::string_view const &message)
         0x00, 0x00, 0x00, 0xfe,
         0x7e, 0x00, 0x02, 0x00
       };
-      u_char message_length;
+      u_short message_length;
       u_char unknown_message_prefix[14] {
         0x00, 0x00, 0x04,
         0x00, 0x00, 0x00, 0x00,
@@ -144,11 +146,11 @@ int net_brite::set_message(std::string_view const &message)
       header.zone_def_id = z_id;
       header.rect = { .ul_x = 0, .ul_y = 0, .horizontal_extent = 200, .vertical_extent = 24 };
       header.zone_id = z_id;
-      if (text.length() > std::numeric_limits<u_char>::max())
+      if (text.length() > std::numeric_limits<u_short>::max())
       {
         throw std::domain_error { "Message too long; maximum length 255 characters." };
       }
-      header.message_length = static_cast<u_char>(text.length());
+      header.message_length = static_cast<u_short>(text.length());
       message_text = text;
 
       std::span<u_char> header_bytes(reinterpret_cast<u_char *>(&header), sizeof(header));
