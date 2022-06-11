@@ -1,0 +1,3 @@
+[submodule "extern/crc"]
+	path = extern/crc
+	url = https://github.com/GediminasMasaitis/crc.h.git
