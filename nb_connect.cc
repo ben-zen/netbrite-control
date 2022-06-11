@@ -142,7 +142,7 @@ int net_brite::set_message(std::string_view const &message)
     message_body(u_char z_id, std::string_view const &text)
     {
       header.zone_def_id = z_id;
-      // set the rectangle
+      header.rect = { .ul_x = 0, .ul_y = 0, .horizontal_extent = 200, .vertical_extent = 24 };
       header.zone_id = z_id;
       if (text.length() > std::numeric_limits<u_char>::max())
       {
