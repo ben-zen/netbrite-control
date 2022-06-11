@@ -4,4 +4,4 @@ project('netbrite-control', 'cpp',
 
 lib = library('nbx', 'nb_connect.cc')
 
-executable('nbctl', 'main.cc')
+executable('nbctl', 'main.cc', link_with: lib)
