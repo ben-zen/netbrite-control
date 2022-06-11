@@ -1,3 +1,4 @@
 [submodule "extern/crc"]
 	path = extern/crc
-	url = https://github.com/GediminasMasaitis/crc.h.git
+	url = https://github.com/ben-zen/crc.h.git
+	branch = correct-size-t

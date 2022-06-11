@@ -14,6 +14,9 @@
 #include <unistd.h>
 #include <vector>
 
+#include <extern/crc/include/crc.h>
+using crc16_ccitt = crc::crc_base<uint16_t, 16, 0x1021, 0x0, 0x0, false, false>; // See readme for crc.h!
+
 using namespace nbx;
 
 net_brite::net_brite(std::string const &address, uint16_t port) :
@@ -68,13 +71,6 @@ net_brite::~net_brite()
     // I don't care if this fails, honestly.
     close(m_socket_fd);
   }
-}
-
-u_short crc(std::span<u_char> const &data)
-{
-  // crc($input,$width,  $init, $xorout,$refout, $poly,$refin,$cont)
-  // crc( shift,    16, 0x0000,  0x0000,      1, 0x1021,     1,   0)
-  return 0;
 }
 
 int net_brite::set_message(std::string_view const &message)
@@ -158,6 +154,8 @@ int net_brite::set_message(std::string_view const &message)
       std::span<u_char> header_bytes(reinterpret_cast<u_char *>(&header), sizeof(header));
 
       packed_message_body.insert(packed_message_body.end(), header_bytes.begin(), header_bytes.end());
+      packed_message_body.insert(packed_message_body.end(), message_text.begin(), message_text.end());
+      packed_message_body.insert(packed_message_body.end(), body_end);
     };
   } s_body { 1, message }; // struct message_body;
 
@@ -172,7 +170,18 @@ int net_brite::set_message(std::string_view const &message)
     u_char filler_char { 0x0 };
     u_char session_packet;
     u_char header_suffix[2] {0x04, 0x00};
-  } s_header;
+
+    message_header(size_t body_len, u_short seq_num, u_char pkt_num)
+    {
+      if (body_len > std::numeric_limits<u_short>::max())
+      {
+        throw std::domain_error { "Message body too large, exceeded the size of an unsigned short." };
+      }
+      body_length = static_cast<u_short>(body_len);
+      sequence_number = seq_num;
+      session_packet = pkt_num;
+    };
+  } s_header { s_body.packed_message_body.size(), ++sequence_number, ++session_number};
   std::span<u_char> header_span { (u_char *)&s_header, sizeof(s_header)};
 
   struct message_footer
@@ -190,8 +199,8 @@ int net_brite::set_message(std::string_view const &message)
   built_message.insert(built_message.end(), header_span.begin(), header_span.end());
   built_message.insert(built_message.end(), s_body.packed_message_body.begin(), s_body.packed_message_body.end());
 
-  s_footer.checksum = crc(built_message);
-  built_message.
+  s_footer.checksum = crc16_ccitt::compute_checksum_static(built_message.begin(), built_message.end());
+  built_message.insert(built_message.end(), footer_span.begin(), footer_span.end());
 
   // The footer is then built and appended to the message.
 

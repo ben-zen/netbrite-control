@@ -13,8 +13,8 @@ namespace nbx
 
     int m_socket_fd;
 
-    u_char sign_sequence_number{};
-    u_char sign_session_number{};
+    u_short sequence_number{};
+    u_char session_number{};
     
   public:
     net_brite(std::string const &address, uint16_t port);
