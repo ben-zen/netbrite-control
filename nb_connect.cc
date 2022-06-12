@@ -44,7 +44,7 @@ net_brite::net_brite(std::string const &address, uint16_t port) :
   }
 
   std::cout << "Opening socket in domain " << info->ai_family << std::endl; 
-  m_socket_fd = socket(info->ai_family, SOCK_DGRAM, IPPROTO_UDP);
+  m_socket_fd = socket(info->ai_family, SOCK_STREAM, IPPROTO_TCP);
   if (m_socket_fd == -1)
   {
     throw std::system_error
