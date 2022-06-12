@@ -1,12 +1,12 @@
 // Copyright Ben Lewis 2022
 
 #include "nb_connect.h"
+#include "formatting.hh"
 #include <errno.h>
 #include <limits>
 #include <iostream>
 #include <netdb.h>
 #include <netinet/in.h>
-#include <span>
 #include <sstream>
 #include <string_view>
 #include <system_error>
@@ -29,10 +29,10 @@ net_brite::net_brite(std::string const &address, uint16_t port) :
   if (error_code != 0)
   {
     throw std::system_error
-          { 
-            std::error_code{error_code, std::system_category()},
-            "getaddrinfo() failed"
-          };
+    { 
+      std::error_code{error_code, std::system_category()},
+      "getaddrinfo() failed"
+    };
   }
 
   if (info->ai_family != AF_INET && info->ai_family != AF_INET6)
@@ -73,7 +73,44 @@ net_brite::~net_brite()
   }
 }
 
-int net_brite::set_message(std::string_view const &message)
+int net_brite::send_sign_message(std::span<uint8_t> const &message)
+{
+  int err = 0;
+  std::vector<uint8_t> escaped_message {};
+  if (message.size() <= 8)
+  {
+    return ERANGE;
+  }
+
+  auto &end_of_header = message.begin() += 4;
+  auto &start_of_footer = message.end() -= 4;
+
+  escaped_message.insert(escaped_message.end(), message.begin(), end_of_header);
+  // The message body needs to have specific bytes escaped before sending; it will be reconstituted on the other side?
+  std::span<uint8_t> escaping_span { end_of_header, start_of_footer };
+  for (auto &&byte : escaping_span)
+  {
+    if (byte == 0x01 || byte == 0x04 || byte == 0x10 || byte == 0x17)
+    {
+      escaped_message.push_back(0x10);
+    }
+
+    escaped_message.push_back(byte);
+  }
+  
+  escaped_message.insert(escaped_message.end(), start_of_footer, message.end());
+  
+  auto sent_bytes = send(m_socket_fd, escaped_message.data(), escaped_message.size(), 0);
+  if (sent_bytes == -1)
+  {
+    // send() failed.
+    err = errno;
+  }
+
+  return err;
+}
+
+int net_brite::set_message(std::string_view const &message, text_color color, text_font font)
 {
   // The magic numbers and message pack structure are C/O https://github.com/ben-zen/Net-Symon-Netbrite/blob/master/lib/Net/Symon/NetBrite.pm
   // Build and send the message to set a rectangle the size of the whole display to the message
@@ -94,17 +131,17 @@ int net_brite::set_message(std::string_view const &message)
         u_char vertical_extent;
       } rect;
       u_char scroll_rate_header { 0x0d };
-      u_char scroll_rate;
+      scroll_speed scroll_rate;
       u_char scroll_rate_footer { 0x0 };
       u_char pause_header { 0x0c };
-      u_short pause {};
+      u_char pause {};
       u_char message_def_parameters[7] { 0x0b, 0xfe, 0x0a, 0xe8, 0x03, 0x09, 0x0e};
       u_char volume_header { 0x08 };
       u_char volume {};
       u_char font_header { 0x07 };
-      u_char font {};
+      text_font font {};
       u_char color_header { 0x06 };
-      u_char color {};
+      text_color color {};
       u_char unknown_option_five[3] { 0x05, 0x00, 0x00, };
       u_char date_header {0x04};
       struct
@@ -141,14 +178,18 @@ int net_brite::set_message(std::string_view const &message)
 
     std::vector<u_char> packed_message_body {};
 
-    message_body(u_char z_id, std::string_view const &text)
+    message_body(u_char z_id, std::string_view const &text, text_color color, text_font font)
     {
       header.zone_def_id = z_id;
       header.rect = { .ul_x = 0, .ul_y = 0, .horizontal_extent = 200, .vertical_extent = 24 };
       header.zone_id = z_id;
+      header.scroll_rate = scroll_speed::medium;
+      header.volume = 4; // allowed values 0-8
+      header.color = color;
+      header.font = font;
       if (text.length() > std::numeric_limits<u_short>::max())
       {
-        throw std::domain_error { "Message too long; maximum length 255 characters." };
+        throw std::domain_error { "Message too long; maximum length is an unsigned short." };
       }
       header.message_length = static_cast<u_short>(text.length());
       message_text = text;
@@ -159,14 +200,14 @@ int net_brite::set_message(std::string_view const &message)
       packed_message_body.insert(packed_message_body.end(), message_text.begin(), message_text.end());
       packed_message_body.insert(packed_message_body.end(), body_end);
     };
-  } s_body { 1, message }; // struct message_body;
+  } s_body { 1, message, color, font }; // struct message_body;
 
   struct message_header
   {
     u_char header_prefix[3] { 0x16, 0x16, 0x01 };
     u_short body_length;
     u_short sequence_number;
-    u_char filler[3] {};
+    u_char filler[3] { 0x00, 0x01, 0x00 };
     u_char type[2] { 0x01, 0x01 }; // type = init (??)
     u_char sign_id_fields[4] { 0x00, 0xc8, 0x01, 0x00 };
     u_char filler_char { 0x0 };
@@ -206,10 +247,7 @@ int net_brite::set_message(std::string_view const &message)
 
   // The footer is then built and appended to the message.
 
-  auto sent_bytes = send(m_socket_fd, built_message.data(), built_message.size(), 0); // + 1 on size for the null terminator.
-  if (sent_bytes == -1)
-  {
-    err = errno;
-  }
+  err = send_sign_message(built_message);
+
   return err;
 }

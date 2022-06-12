@@ -1,7 +1,12 @@
 // Copyright Ben Lewis 2022
 
+#pragma once
+
+#include <span>
 #include <string>
 #include <string_view>
+
+#include "formatting.hh"
 
 namespace nbx
 {
@@ -20,6 +25,9 @@ namespace nbx
     net_brite(std::string const &address, uint16_t port);
     ~net_brite();
     
-    int set_message(std::string_view const &message);
+    int set_message(std::string_view const &message, text_color color = text_color::yellow, text_font font = text_font::proportional_11);
+
+  private:
+    int send_sign_message(std::span<uint8_t> const &message);
   };
 };
