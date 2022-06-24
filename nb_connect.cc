@@ -110,6 +110,18 @@ int net_brite::send_sign_message(std::span<uint8_t> const &message)
   return err;
 }
 
+// The header for all message types is composed of a few fields:
+// { 0x16, 0x16, 0x01 } prefix
+// 16-bit body size
+// 16-bit sequence number
+// { 0x00, 0x01, 0x00 } header suffix
+//
+// Then the format breaks apart based on message type:
+// RESET has the segment { 0x04 0x01 0x00 }
+// TIME has the segment { 0x04 0x01 0x00 0x04 }
+// INIT is identified by { 0x01 0x01 } and then has a bunch more parameters
+// MESSAGE is { 0x03 } followed by a convoluted identifier to get the zone.
+
 int net_brite::set_message(std::string_view const &message, text_color color, text_font font)
 {
   // The magic numbers and message pack structure are C/O https://github.com/ben-zen/Net-Symon-Netbrite/blob/master/lib/Net/Symon/NetBrite.pm
